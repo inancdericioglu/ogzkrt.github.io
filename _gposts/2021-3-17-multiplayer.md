@@ -157,12 +157,10 @@ eclipse.project.name = appName + "-client"
 ```
 
 - Browse the **build.gradle** file inside the **server**  folder and replace replace it's content with this.
-```Bash
+```bash
 sourceCompatibility = 1.8
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-
 sourceSets.main.java.srcDirs = [ "src/" ]
-
 eclipse.project.name = appName + "-server"
 ```
 
