@@ -106,8 +106,19 @@ Instead of core and desktop folders, I want **Client** and **Server** folders in
 - Server (Our server side code will be here).
 
 
-Remove all the projects inside build.gradle file inside the root folder and paste the following projects instead of them.
-```bash
+
+
+
+Do the following things to step by step.
+
+- Add following lines to the **.gitignore** file.
+```text
+/client/bin/
+/server/bin/
+```
+
+- Remove the project **core** and **desktop** inside build.gradle file inside the root folder and paste the following projects instead of them.
+```gradle
 project(":client") {
     apply plugin: "java-library"
 
@@ -148,21 +159,128 @@ project(":server") {
 ```bash
 include 'client','server'
 ```
-- Browse the **build.gradle** file inside the **client**  folder and replace replace it's content with this.
+- Browse the **build.gradle** file inside the **client**  folder and replace it's content with this.
 ```bash
 sourceCompatibility = 1.8
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 sourceSets.main.java.srcDirs = [ "src/" ]
+project.ext.assetDir = new File("./assets")
+sourceSets.main.resources.srcDirs = ["./assets"]
 eclipse.project.name = appName + "-client"
 ```
 
-- Browse the **build.gradle** file inside the **server**  folder and replace replace it's content with this.
+- Browse the **build.gradle** file inside the **server**  folder and it's replace content with this.
 ```bash
 sourceCompatibility = 1.8
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 sourceSets.main.java.srcDirs = [ "src/" ]
 eclipse.project.name = appName + "-server"
 ```
+
+- Inside the **Killthemall-server** project rename the **Killthemall.java** to **KillthemallServer.java** and replace its content with this.
+
+```java
+
+package com.javakaian.game;
+import com.badlogic.gdx.ApplicationAdapter;
+
+public class KillthemallServer extends ApplicationAdapter {
+
+	@Override
+	public void create() {
+		System.out.println("Server created..");
+	}
+
+	@Override
+	public void render() {
+	}
+
+}
+
+```
+
+- Create a main class for server. Since our server does not need GUI, we will be using HeadlessApplication.
+
+```java
+
+package com.javakaian.game;
+
+import com.badlogic.gdx.backends.headless.HeadlessApplication;
+import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
+
+public class ServerMain {
+
+	public static void main(String[] args) {
+
+		HeadlessApplicationConfiguration conf = new HeadlessApplicationConfiguration();
+		conf.updatesPerSecond = 60;
+
+		new HeadlessApplication(new KillthemallServer(), conf);
+	}
+
+}
+```
+Now we will do the same things for client.
+- Inside the **Killthemall-client** project rename the **Killthemall.java** to **KillthemallClient.java** and replace its content with this.
+
+```java
+package com.javakaian.game;
+
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.ScreenUtils;
+
+public class KillthemallClient extends ApplicationAdapter {
+	SpriteBatch batch;
+	Texture img;
+	
+	@Override
+	public void create () {
+		batch = new SpriteBatch();
+		img = new Texture("badlogic.jpg");
+	}
+
+	@Override
+	public void render () {
+		ScreenUtils.clear(1, 0, 0, 1);
+		batch.begin();
+		batch.draw(img, 0, 0);
+		batch.end();
+	}
+	
+	@Override
+	public void dispose () {
+		batch.dispose();
+		img.dispose();
+	}
+}
+
+
+```
+
+- Create a main class for client.
+
+```java
+package com.javakaian.game;
+
+import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
+import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
+
+public class ClientMain {
+
+	public static void main(String[] args) {
+
+		LwjglApplicationConfiguration conf = new LwjglApplicationConfiguration();
+
+		new LwjglApplication(new KillthemallClient(), conf);
+
+	}
+}
+
+```
+That's it. Now we are done with our second tutorial. If you have an error or struggle to do steps above, you can watch my video tutorial from [this]()
+link. If you find this usefull please subsrice to my youtube channel.
 
 ## Authorative Server Approach
 
