@@ -20,6 +20,7 @@ Each section of this post has also have tutorial video on youtube. If you like t
 
 * [Setup Installation](#installation)
 * [Project Layout](#project-layout)
+* [Utility Classes](#utility-classes)
 * [Authorative Server Approach](#authorative-server-approach)
 * [State Structure](#state-mechanism)
 * [Play State](#play-state)
@@ -295,10 +296,309 @@ Client Server Architecture
 As you can see from the figure above, we will have one server which will manage multiple clients. 
 
 ## State Mechanism
+
+Our game will be composed of different States. Like:
+- Play State
+- Menu State
+- Game Over State
+
+Each state will have their own **Camera**, **SpriteBatch**, **SpaheRenderer**, **InputProcessor** objects. So, it will be easier for us to draw different things when game state is changed. For example, when we play the game, we will only call render and update methods of  PlayState. When the player is dead, we are going to render GameOverState which will have different texts and options.
+
+To implement this structure, we are going to need one controller class which we will call **StateController**. StateController class will be responsible for creating different states for our needs and it will manage the game states.
+
+
+```java
+package com.javakaian.states;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.badlogic.gdx.Gdx;
+import com.javakaian.states.State.StateEnum;
+
+/**
+ * * This class is responsible for controlling states in a game. It invokes
+ * render and update functions of current state and binds current states input
+ * processor as a processor.
+ * 
+ * It keeps all the states of a game inside a HashMap. If player demands a state
+ * which is not already in that hashmap, it creates that state and puts it to
+ * the hashmap.
+ * 
+ * @author oguz
+ * 
+ */
+public class StateController {
+
+	/** A hashmap which stores states inside. */
+	private Map<Integer, State> stateMap;
+	/** State object to store current state */
+	private State currentState;
+	/** Ip address of the server */
+	private String inetAddress;
+
+	public StateController(String ip) {
+
+		this.inetAddress = ip;
+		stateMap = new HashMap<Integer, State>();
+
+	}
+
+	/**
+	 * Sets the current state of the game to the given state. Takes StateEnum as a
+	 * parameter.
+	 * 
+	 * @param stateEnum
+	 **/
+	public void setState(StateEnum stateEnum) {
+
+		currentState = stateMap.get(stateEnum.ordinal());
+		if (currentState == null) {
+			switch (stateEnum) {
+			case PlayState:
+				currentState = new PlayState(this);
+				break;
+			case GameOverState:
+				currentState = new GameOverState(this);
+				break;
+			case MenuState:
+				currentState = new MenuState(this);
+				break;
+
+			default:
+				break;
+			}
+			stateMap.put(stateEnum.ordinal(), currentState);
+		}
+		Gdx.input.setInputProcessor(currentState.ip);
+	}
+
+	/**
+	 * Renders the current state.
+	 */
+	public void render() {
+
+		currentState.render();
+	}
+
+	/**
+	 * Updates the current state.
+	 */
+	public void update(float deltaTime) {
+		currentState.update(deltaTime);
+	}
+
+	/**
+	 * Calls the dispose method of each state in the hashmap.
+	 */
+	public void dispose() {
+		stateMap.forEach((k, v) -> {
+			v.dispose();
+		});
+	}
+
+	/**
+	 * HashMap object which stores states of the game as key value pair.
+	 */
+	public Map<Integer, State> getStateMap() {
+		return stateMap;
+	}
+
+	/** Returns the ip address of a server. */
+	public String getInetAddress() {
+		return inetAddress;
+	}
+
+}
+
+```
+
+Our StateController class will be like the above. It will have a HashMap which will be used to store different state objects. StateController will have an object called **CurrentState** and it will only call render and updaate methods of that current state object. When we want to change state, we will be using **setState** function. SetState function going to check the state hashmap object, if the state that we want is not on that map then it will create that state, push in to the HashMap object and will bind as an current state. Every time when we change a state, it will also bind the input processor of that state.
+
+
+Our State class will be like below:
+
+```java
+package com.javakaian.states;
+
+import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.javakaian.shooter.utils.GameConstants;
+import com.javakaian.shooter.utils.GameUtils;
+
+/**
+ * 
+ * This class represents the game states. Usually most of the games will have
+ * states like GameOver,Option,Menu
+ * 
+ * Each state will have their own render and update methods.Which will be called
+ * by StateController object.
+ * 
+ * Each state will have their own input
+ * processor,shaperenderer,spritebatch,camera and also font.
+ * 
+ * @author oguz
+ *
+ */
+public abstract class State {
+
+	protected OrthographicCamera camera;
+	protected InputProcessor ip;
+	protected ShapeRenderer sr;
+	protected SpriteBatch sb;
+	protected BitmapFont bitmapFont;
+	protected GlyphLayout glyphLayout;
+
+	protected StateController sc;
+
+	public State(StateController sc) {
+
+		this.sc = sc;
+
+		camera = new OrthographicCamera(GameConstants.SCREEN_WIDTH, GameConstants.SCREEN_HEIGHT);
+		camera.setToOrtho(true);
+
+		sr = new ShapeRenderer();
+		sb = new SpriteBatch();
+
+		sr.setProjectionMatrix(camera.combined);
+		sb.setProjectionMatrix(camera.combined);
+
+		bitmapFont = GameUtils.generateBitmapFont(70, Color.WHITE);
+		glyphLayout = new GlyphLayout();
+
+	}
+
+	/**
+	 * All the rendering stuff should be made inside this method. This will be
+	 * called by StateController object.
+	 */
+	public abstract void render();
+
+	/**
+	 * All the update stuff should be made inside this method. This will be called
+	 * by StateController object. Deltatime parameter can be used for measuring
+	 * time.
+	 * 
+	 * @param deltaTime Time between two consecutive frames.
+	 *
+	 */
+	public abstract void update(float deltaTime);
+
+	/**
+	 * This method will be called by StateController. Allocated resources should be
+	 * released here.
+	 */
+	public abstract void dispose();
+
+	/**
+	 * Returns the statecontroller object.
+	 */
+	public StateController getSc() {
+		return sc;
+	}
+
+	/** Enum for each state */
+	public enum StateEnum {
+
+		PlayState, MenuState, GameOverState, PauseState
+
+	}
+
+}
+
+```
+
 ## Play State
 ## Menu State
 ## Game Over State
 ## Font Rendering
+
+To render Fonts we are going to use library called **FreeType**. First we have to generate bitmapfont with the size and the color we want. Below you can see the code snippet to generate bitmapfont. 
+
+```java
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
+		FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+		parameter.flip = true;
+		parameter.size = size;
+		parameter.color = color;
+		parameter.magFilter = TextureFilter.Linear;
+		parameter.minFilter = TextureFilter.Linear;
+		BitmapFont myFont = generator.generateFont(parameter);
+
+```
+As you can see, you need a **font.tff** file to generate fonts. There are plenty of free fonts online. You can use [this](https://www.1001fonts.com) website. Just chose the one you like and copy that **.ttf** file under your assets directory. After generating BitMapFont object with the size and color you want all you have to do that is render a string with that font. This is how we do that:
+
+```java
+font.draw(sb,"Hello", X,Y);
+```
+Draw method of the BitmapFont that we see above, takes 4 arguments which are
+- SpriteBatch object.
+- Text that we are going to draw.
+- X coordinate of that text.
+- Y coordinate of that text.
+
+Like we mentioned before in [State Structure](#state-mechanism) section, each state will/can have their own font which may be different size or even in the same state we may want to draw things with the different sizes and fonts. That's why we are going to write a utility class which will save us from the boiler plate code. 
+
+
+```java
+package com.javakaian.shooter.utils;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
+
+public class GameUtils {
+
+	public static BitmapFont generateBitmapFont(int size, Color color) {
+
+		FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
+		FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+		parameter.flip = true;
+		parameter.size = size;
+		parameter.color = color;
+		parameter.magFilter = TextureFilter.Linear;
+		parameter.minFilter = TextureFilter.Linear;
+		return generator.generateFont(parameter);
+	}
+
+	public static void renderCenter(String text, SpriteBatch sb, BitmapFont font) {
+
+		GlyphLayout gl = new GlyphLayout(font, text);
+		font.draw(sb, text, GameConstants.SCREEN_WIDTH / 2 - gl.width / 2,
+				GameConstants.SCREEN_HEIGHT * 0.3f - gl.height / 2);
+
+	}
+
+	public static void renderCenter(String text, SpriteBatch sb, BitmapFont font, float y) {
+
+		GlyphLayout gl = new GlyphLayout(font, text);
+		font.draw(sb, text, GameConstants.SCREEN_WIDTH / 2 - gl.width / 2,
+				GameConstants.SCREEN_HEIGHT * y - gl.height / 2);
+
+	}
+
+	public static void renderTopRight(String text, SpriteBatch sb, BitmapFont font) {
+
+		GlyphLayout gl = new GlyphLayout(font, text);
+		font.draw(sb, text, GameConstants.SCREEN_WIDTH / 2 - gl.width / 2,
+				GameConstants.SCREEN_HEIGHT * 0.1f - gl.height / 2);
+	}
+
+}
+
+```
+
 ## Basic Connection with Server
 ## Creating Player
 ## Input Processing
