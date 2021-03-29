@@ -112,13 +112,7 @@ Instead of core and desktop folders, I want **Client** and **Server** folders in
 
 Do the following things to step by step.
 
-- Add following lines to the **.gitignore** file.
-```text
-/client/bin/
-/server/bin/
-```
-
-- Remove the project **core** and **desktop** inside build.gradle file inside the root folder and paste the following projects instead of them.
+- Inside the build.gradle file remove the project **core** and **desktop** and paste the following projects instead of them.
 ```gradle
 project(":client") {
     apply plugin: "java-library"
@@ -152,7 +146,6 @@ project(":server") {
     }
 }
 ```
-
 - Delete the desktop folder
 - Rename the **core** folder to the **client**
 - Copy **client** folder and rename it as **server**
@@ -519,17 +512,17 @@ public abstract class State {
 ## Game Over State
 ## Font Rendering
 
-To render Fonts we are going to use library called **FreeType**. First we have to generate bitmapfont with the size and the color we want. Below you can see the code snippet to generate bitmapfont. 
+To render Fonts we are going to use library called **FreeType**. First we have to generate BitmapFont object with the size and the color we want. Below you can see the code snippet to generate bitmapfont. 
 
 ```java
-        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
-		FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-		parameter.flip = true;
-		parameter.size = size;
-		parameter.color = color;
-		parameter.magFilter = TextureFilter.Linear;
-		parameter.minFilter = TextureFilter.Linear;
-		BitmapFont myFont = generator.generateFont(parameter);
+FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
+FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+parameter.flip = true;
+parameter.size = size;
+parameter.color = color;
+parameter.magFilter = TextureFilter.Linear;
+parameter.minFilter = TextureFilter.Linear;
+BitmapFont myFont = generator.generateFont(parameter);
 
 ```
 As you can see, you need a **font.tff** file to generate fonts. There are plenty of free fonts online. You can use [this](https://www.1001fonts.com) website. Just chose the one you like and copy that **.ttf** file under your assets directory. After generating BitMapFont object with the size and color you want all you have to do that is render a string with that font. This is how we do that:
@@ -543,11 +536,26 @@ Draw method of the BitmapFont that we see above, takes 4 arguments which are
 - X coordinate of that text.
 - Y coordinate of that text.
 
-Like we mentioned before in [State Structure](#state-mechanism) section, each state will/can have their own font which may be different size or even in the same state we may want to draw things with the different sizes and fonts. That's why we are going to write a utility class which will save us from the boiler plate code. 
+There is one more thing that we have to know before implementing our font rendering. When we try to center (horizontally) the text, it will be hard for us to decide the X coordinate because we don't really know the width and height of the our text. That's why we are going to use something called **GlyphLayout**. With GlyphLayout we can get the dimensions easly. To create **GlyphLayout** object all we need is **BitmapFont** object and the **String** that we are going to render. Now we can get the width and height of the text with the following simple code.
 
 
 ```java
-package com.javakaian.shooter.utils;
+GlyphLayout gl = new GlyphLayout(font, text);
+int WIDTH_OF_THE_TEXT = gl.width;
+int HEIGHT_OF_THE_TEXT = gl.height;
+```
+
+
+Since we know the width and height of the text that we are going to render and also the dimensions of the screen, we can easly align our text to the center just like this.
+```java
+GlyphLayout gl = new GlyphLayout(font, text);
+font.draw(sb, text, GameConstants.SCREEN_WIDTH / 2 - gl.width / 2,GameConstants.SCREEN_HEIGHT * y - gl.height / 2);
+
+```
+Like we mentioned before in [State Structure](#state-mechanism) section, each state will/can have their own font which may be different size or even in the same state we may want to draw things with the different sizes and fonts. That's why we are going to write a utility class which will save us from the boiler plate code. 
+
+```java
+package com.javakaian.game.utils;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
@@ -560,6 +568,12 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFont
 
 public class GameUtils {
 
+	/**
+	 * Generates BitmapFont object with specified size and color parameters.
+	 * 
+	 * @param size  Size of the desired font
+	 * @param color Color of the desired font.
+	 **/
 	public static BitmapFont generateBitmapFont(int size, Color color) {
 
 		FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
@@ -572,6 +586,14 @@ public class GameUtils {
 		return generator.generateFont(parameter);
 	}
 
+	/**
+	 * Renders the given string to the center of the screen. (Horizontally center
+	 * not vertically)
+	 * 
+	 * @param text String to be rendered.
+	 * @param sb   SpriteBatch object
+	 * @param font BitmapFont object
+	 */
 	public static void renderCenter(String text, SpriteBatch sb, BitmapFont font) {
 
 		GlyphLayout gl = new GlyphLayout(font, text);
@@ -580,6 +602,15 @@ public class GameUtils {
 
 	}
 
+	/**
+	 * Renders the given string to the center of the screen. (Horizontally center
+	 * not vertically). But also allows you to specify Y location of the string.
+	 * 
+	 * @param text String to be rendered.
+	 * @param sb   SpriteBatch object
+	 * @param font BitmapFont object
+	 * @param y    Y location of the text.
+	 */
 	public static void renderCenter(String text, SpriteBatch sb, BitmapFont font, float y) {
 
 		GlyphLayout gl = new GlyphLayout(font, text);
@@ -588,16 +619,48 @@ public class GameUtils {
 
 	}
 
-	public static void renderTopRight(String text, SpriteBatch sb, BitmapFont font) {
+}
+```
 
-		GlyphLayout gl = new GlyphLayout(font, text);
-		font.draw(sb, text, GameConstants.SCREEN_WIDTH / 2 - gl.width / 2,
-				GameConstants.SCREEN_HEIGHT * 0.1f - gl.height / 2);
+After all these things, now it is so each for us to render text to the center of screen.  As it can be seen from the code below, first we create a font inside the create method and then we render that font inside the render method.
+```java
+public class KillthemallClient extends ApplicationAdapter {
+
+	private SpriteBatch sb;
+	private BitmapFont font;
+
+	private OrthographicCamera camera;
+
+	@Override
+	public void create() {
+
+		sb = new SpriteBatch();
+		// Generate font with size 40 and color white.
+		font = GameUtils.generateBitmapFont(40, Color.WHITE);
+
+		camera = new OrthographicCamera();
+		camera.setToOrtho(true, GameConstants.SCREEN_WIDTH, GameConstants.SCREEN_HEIGHT);
+
+		sb.setProjectionMatrix(camera.combined);
 	}
 
-}
+	@Override
+	public void render() {
+		sb.begin();
+		// Render Hello world with the font that we generated.
+		GameUtils.renderCenter("Hello World", sb, font);
+		sb.end();
+	}
 
+	@Override
+	public void dispose() {
+	}
+}
 ```
+If you follow all these step you should be seing something like this.
+<p align="center">
+<img src="/images/multiplayer/font_rendering.png" alt="Game Play GIF" width="1000">
+</p>
 
 ## Basic Connection with Server
 ## Creating Player
