@@ -21,15 +21,15 @@ Each section of this post has also have tutorial video on youtube. If you like t
 * [Setup Installation](#installation)
 * [Project Layout](#project-layout)
 * [Utility Classes](#utility-classes)
-* [Authorative Server Approach](#authorative-server-approach)
+* [Font Rendering](#font-rendering)
+* [Input Processing](#input-processing)
 * [State Structure](#state-mechanism)
 * [Play State](#play-state)
 * [Menu State](#menu-state)
 * [Game Over State](#architecture)
-* [Font Rendering](#font-rendering)
+* [Authorative Server Approach](#authorative-server-approach)
 * [Basic Connection with Server](#basic-connection-with-server)
 * [Creating Player](#creating-player)
-* [Input Processing](#input-processing)
 * [Server-side Enemy Generation](#server-side-enemy-generation)
 * [Sending Inputs to the Server](#sending-inputs-to-the-server)
 * [Rendering Other Players](#rendering-other-players)
@@ -276,240 +276,8 @@ public class ClientMain {
 That's it. Now we are done with our second tutorial. If you have an error or struggle to do steps above, you can watch my video tutorial from [this]()
 link. If you find this usefull please subsrice to my youtube channel.
 
-## Authorative Server Approach
+## Input Processing
 
-Our game will follow authorative server and dumb clients approach. Basically it means, whenever a client wants to do an action it will send it to the server and server will check the validity of that action and respond back to client with a new state. For more in depth explanation please read [this](https://www.gabrielgambetta.com/client-server-game-architecture.html#authoritative-servers-and-dumb-clients) explanation.
-
-<p align="center">
-<img src="/images/multiplayer/server_client.png" alt="Server Client Arc" width="1000">
-Client Server Architecture
-</p>
-
-
-As you can see from the figure above, we will have one server which will manage multiple clients. 
-
-## State Mechanism
-
-Our game will be composed of different States. Like:
-- Play State
-- Menu State
-- Game Over State
-
-Each state will have their own **Camera**, **SpriteBatch**, **SpaheRenderer**, **InputProcessor** objects. So, it will be easier for us to draw different things when game state is changed. For example, when we play the game, we will only call render and update methods of  PlayState. When the player is dead, we are going to render GameOverState which will have different texts and options.
-
-To implement this structure, we are going to need one controller class which we will call **StateController**. StateController class will be responsible for creating different states for our needs and it will manage the game states.
-
-
-```java
-package com.javakaian.states;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import com.badlogic.gdx.Gdx;
-import com.javakaian.states.State.StateEnum;
-
-/**
- * * This class is responsible for controlling states in a game. It invokes
- * render and update functions of current state and binds current states input
- * processor as a processor.
- * 
- * It keeps all the states of a game inside a HashMap. If player demands a state
- * which is not already in that hashmap, it creates that state and puts it to
- * the hashmap.
- * 
- * @author oguz
- * 
- */
-public class StateController {
-
-	/** A hashmap which stores states inside. */
-	private Map<Integer, State> stateMap;
-	/** State object to store current state */
-	private State currentState;
-	/** Ip address of the server */
-	private String inetAddress;
-
-	public StateController(String ip) {
-
-		this.inetAddress = ip;
-		stateMap = new HashMap<Integer, State>();
-
-	}
-
-	/**
-	 * Sets the current state of the game to the given state. Takes StateEnum as a
-	 * parameter.
-	 * 
-	 * @param stateEnum
-	 **/
-	public void setState(StateEnum stateEnum) {
-
-		currentState = stateMap.get(stateEnum.ordinal());
-		if (currentState == null) {
-			switch (stateEnum) {
-			case PlayState:
-				currentState = new PlayState(this);
-				break;
-			case GameOverState:
-				currentState = new GameOverState(this);
-				break;
-			case MenuState:
-				currentState = new MenuState(this);
-				break;
-
-			default:
-				break;
-			}
-			stateMap.put(stateEnum.ordinal(), currentState);
-		}
-		Gdx.input.setInputProcessor(currentState.ip);
-	}
-
-	/**
-	 * Renders the current state.
-	 */
-	public void render() {
-
-		currentState.render();
-	}
-
-	/**
-	 * Updates the current state.
-	 */
-	public void update(float deltaTime) {
-		currentState.update(deltaTime);
-	}
-
-	/**
-	 * Calls the dispose method of each state in the hashmap.
-	 */
-	public void dispose() {
-		stateMap.forEach((k, v) -> {
-			v.dispose();
-		});
-	}
-
-	/**
-	 * HashMap object which stores states of the game as key value pair.
-	 */
-	public Map<Integer, State> getStateMap() {
-		return stateMap;
-	}
-
-	/** Returns the ip address of a server. */
-	public String getInetAddress() {
-		return inetAddress;
-	}
-
-}
-
-```
-
-Our StateController class will be like the above. It will have a HashMap which will be used to store different state objects. StateController will have an object called **CurrentState** and it will only call render and updaate methods of that current state object. When we want to change state, we will be using **setState** function. SetState function going to check the state hashmap object, if the state that we want is not on that map then it will create that state, push in to the HashMap object and will bind as an current state. Every time when we change a state, it will also bind the input processor of that state.
-
-
-Our State class will be like below:
-
-```java
-package com.javakaian.states;
-
-import com.badlogic.gdx.InputProcessor;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.javakaian.shooter.utils.GameConstants;
-import com.javakaian.shooter.utils.GameUtils;
-
-/**
- * 
- * This class represents the game states. Usually most of the games will have
- * states like GameOver,Option,Menu
- * 
- * Each state will have their own render and update methods.Which will be called
- * by StateController object.
- * 
- * Each state will have their own input
- * processor,shaperenderer,spritebatch,camera and also font.
- * 
- * @author oguz
- *
- */
-public abstract class State {
-
-	protected OrthographicCamera camera;
-	protected InputProcessor ip;
-	protected ShapeRenderer sr;
-	protected SpriteBatch sb;
-	protected BitmapFont bitmapFont;
-	protected GlyphLayout glyphLayout;
-
-	protected StateController sc;
-
-	public State(StateController sc) {
-
-		this.sc = sc;
-
-		camera = new OrthographicCamera(GameConstants.SCREEN_WIDTH, GameConstants.SCREEN_HEIGHT);
-		camera.setToOrtho(true);
-
-		sr = new ShapeRenderer();
-		sb = new SpriteBatch();
-
-		sr.setProjectionMatrix(camera.combined);
-		sb.setProjectionMatrix(camera.combined);
-
-		bitmapFont = GameUtils.generateBitmapFont(70, Color.WHITE);
-		glyphLayout = new GlyphLayout();
-
-	}
-
-	/**
-	 * All the rendering stuff should be made inside this method. This will be
-	 * called by StateController object.
-	 */
-	public abstract void render();
-
-	/**
-	 * All the update stuff should be made inside this method. This will be called
-	 * by StateController object. Deltatime parameter can be used for measuring
-	 * time.
-	 * 
-	 * @param deltaTime Time between two consecutive frames.
-	 *
-	 */
-	public abstract void update(float deltaTime);
-
-	/**
-	 * This method will be called by StateController. Allocated resources should be
-	 * released here.
-	 */
-	public abstract void dispose();
-
-	/**
-	 * Returns the statecontroller object.
-	 */
-	public StateController getSc() {
-		return sc;
-	}
-
-	/** Enum for each state */
-	public enum StateEnum {
-
-		PlayState, MenuState, GameOverState, PauseState
-
-	}
-
-}
-
-```
-
-## Play State
-## Menu State
-## Game Over State
 ## Font Rendering
 
 To render Fonts we are going to use library called **FreeType**. First we have to generate BitmapFont object with the size and the color we want. Below you can see the code snippet to generate bitmapfont. 
@@ -662,9 +430,252 @@ If you follow all these step you should be seing something like this.
 <img src="/images/multiplayer/font_rendering.png" alt="Game Play GIF" width="1000">
 </p>
 
+## State Mechanism
+
+Our game will be composed of different States. Like:
+- Play State
+- Menu State
+- Game Over State
+
+<p align="center">
+<img src="/images/multiplayer/state_inheritance.png" alt="State Inheritance" width="1000">
+</p>
+
+Each state will have their own **Camera**, **SpriteBatch**, **SpaheRenderer**, **InputProcessor** objects. So, it will be easier for us to draw different things when game state is changed. For example, when we play the game, we will only call render and update methods of  PlayState. When the player is dead, we are going to render GameOverState which will have different texts and options.
+
+Here is the full implementation of our **State** class that we describe above.
+
+
+```java
+package com.javakaian.states;
+
+import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.javakaian.shooter.utils.GameConstants;
+import com.javakaian.shooter.utils.GameUtils;
+
+/**
+ * 
+ * This class represents the game states. Usually most of the games will have
+ * states like GameOver,Option,Menu
+ * 
+ * Each state will have their own render and update methods.Which will be called
+ * by StateController object.
+ * 
+ * Each state will have their own input
+ * processor,shaperenderer,spritebatch,camera and also font.
+ * 
+ * @author oguz
+ *
+ */
+public abstract class State {
+
+	protected OrthographicCamera camera;
+	protected InputProcessor ip;
+	protected ShapeRenderer sr;
+	protected SpriteBatch sb;
+	protected BitmapFont bitmapFont;
+	protected GlyphLayout glyphLayout;
+
+	protected StateController sc;
+
+	public State(StateController sc) {
+
+		this.sc = sc;
+
+		camera = new OrthographicCamera(GameConstants.SCREEN_WIDTH, GameConstants.SCREEN_HEIGHT);
+		camera.setToOrtho(true);
+
+		sr = new ShapeRenderer();
+		sb = new SpriteBatch();
+
+		sr.setProjectionMatrix(camera.combined);
+		sb.setProjectionMatrix(camera.combined);
+
+		bitmapFont = GameUtils.generateBitmapFont(70, Color.WHITE);
+		glyphLayout = new GlyphLayout();
+
+	}
+
+	/**
+	 * All the rendering stuff should be made inside this method. This will be
+	 * called by StateController object.
+	 */
+	public abstract void render();
+
+	/**
+	 * All the update stuff should be made inside this method. This will be called
+	 * by StateController object. Deltatime parameter can be used for measuring
+	 * time.
+	 * 
+	 * @param deltaTime Time between two consecutive frames.
+	 *
+	 */
+	public abstract void update(float deltaTime);
+
+	/**
+	 * This method will be called by StateController. Allocated resources should be
+	 * released here.
+	 */
+	public abstract void dispose();
+
+	/**
+	 * Returns the statecontroller object.
+	 */
+	public StateController getSc() {
+		return sc;
+	}
+
+	/** Enum for each state */
+	public enum StateEnum {
+
+		PlayState, MenuState, GameOverState, PauseState
+
+	}
+
+}
+
+```
+
+
+To implement this structure, we are going to need one controller class which we will call **StateController**. StateController class will be responsible for creating different states for our needs and it will manage the game states.
+
+<p align="center">
+<img src="/images/multiplayer/state_controller.png" alt="State Controller" width="1000">
+</p>
+Our StateController class will be like the above. It will have a HashMap which will be used to store different state objects. StateController will have an object called **CurrentState** and it will only call render and updaate methods of that current state object. When we want to change state, we will be using **setState** function. SetState function going to check the state hashmap object, if the state that we want is not on that map then it will create that state, push in to the HashMap object and will bind as an current state. Every time when we change a state, it will also bind the input processor of that state.
+
+
+```java
+package com.javakaian.states;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.badlogic.gdx.Gdx;
+import com.javakaian.states.State.StateEnum;
+
+/**
+ * * This class is responsible for controlling states in a game. It invokes
+ * render and update functions of current state and binds current states input
+ * processor as a processor.
+ * 
+ * It keeps all the states of a game inside a HashMap. If player demands a state
+ * which is not already in that hashmap, it creates that state and puts it to
+ * the hashmap.
+ * 
+ * @author oguz
+ * 
+ */
+public class StateController {
+
+	/** A hashmap which stores states inside. */
+	private Map<Integer, State> stateMap;
+	/** State object to store current state */
+	private State currentState;
+	/** Ip address of the server */
+	private String inetAddress;
+
+	public StateController(String ip) {
+
+		this.inetAddress = ip;
+		stateMap = new HashMap<Integer, State>();
+
+	}
+
+	/**
+	 * Sets the current state of the game to the given state. Takes StateEnum as a
+	 * parameter.
+	 * 
+	 * @param stateEnum
+	 **/
+	public void setState(StateEnum stateEnum) {
+
+		currentState = stateMap.get(stateEnum.ordinal());
+		if (currentState == null) {
+			switch (stateEnum) {
+			case PlayState:
+				currentState = new PlayState(this);
+				break;
+			case GameOverState:
+				currentState = new GameOverState(this);
+				break;
+			case MenuState:
+				currentState = new MenuState(this);
+				break;
+
+			default:
+				break;
+			}
+			stateMap.put(stateEnum.ordinal(), currentState);
+		}
+		Gdx.input.setInputProcessor(currentState.ip);
+	}
+
+	/**
+	 * Renders the current state.
+	 */
+	public void render() {
+
+		currentState.render();
+	}
+
+	/**
+	 * Updates the current state.
+	 */
+	public void update(float deltaTime) {
+		currentState.update(deltaTime);
+	}
+
+	/**
+	 * Calls the dispose method of each state in the hashmap.
+	 */
+	public void dispose() {
+		stateMap.forEach((k, v) -> {
+			v.dispose();
+		});
+	}
+
+	/**
+	 * HashMap object which stores states of the game as key value pair.
+	 */
+	public Map<Integer, State> getStateMap() {
+		return stateMap;
+	}
+
+	/** Returns the ip address of a server. */
+	public String getInetAddress() {
+		return inetAddress;
+	}
+
+}
+
+```
+
+## Play State
+## Menu State
+## Game Over State
+
+## Authorative Server Approach
+
+Our game will follow authorative server and dumb clients approach. Basically it means, whenever a client wants to do an action it will send it to the server and server will check the validity of that action and respond back to client with a new state. For more in depth explanation please read [this](https://www.gabrielgambetta.com/client-server-game-architecture.html#authoritative-servers-and-dumb-clients) explanation.
+
+<p align="center">
+<img src="/images/multiplayer/server_client.png" alt="Server Client Arc" width="1000">
+Client Server Architecture
+</p>
+
+
+As you can see from the figure above, we will have one server which will manage multiple clients. 
+
+
 ## Basic Connection with Server
 ## Creating Player
-## Input Processing
 ## Server-side Enemy Generation
 ## Sending Inputs to the Server
 ## Rendering Other Players
